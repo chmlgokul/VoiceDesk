@@ -3,3 +3,10 @@ uvicorn==0.54.0
 pwdlib[argon2]==0.3.1
 PyJWT==2.15.1
 pydantic==2.14.0
+
+fastapi==0.143.0
+uvicorn==0.54.0
+pwdlib[argon2]==0.3.1
+PyJWT==2.15.1
+pydantic==2.14.0
+libsql==0.1.11

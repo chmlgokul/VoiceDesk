@@ -1,5 +1,7 @@
 from pathlib import Path
+import os
 import sqlite3
+from collections.abc import Mapping
 from datetime import datetime, timezone
 
 DATABASE_PATH = Path(__file__).resolve().parent / "voicedesk.db"
@@ -7,7 +9,105 @@ ROLE_TO_DB = {"employee": "Employee", "it_support": "IT Support", "admin": "Admi
 ROLE_FROM_DB = {value: key for key, value in ROLE_TO_DB.items()}
 
 
+def _load_local_env():
+    """Load local .env values without overriding environment variables already set."""
+    env_path = Path(__file__).resolve().parent / ".env"
+    if not env_path.is_file():
+        return
+
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+
+        if value.startswith(("'", '"')) and value.endswith(("'", '"')):
+            value = value[1:-1]
+
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+class _Row(Mapping):
+    """Provide SQLite-compatible named and positional access to Turso rows."""
+
+    def __init__(self, columns, values):
+        self._columns = tuple(columns)
+        self._values = tuple(values)
+        self._data = dict(zip(self._columns, self._values))
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._values[key]
+        return self._data[key]
+
+    def __iter__(self):
+        return iter(self._columns)
+
+    def __len__(self):
+        return len(self._columns)
+
+
+class _CursorAdapter:
+    """Adapt Turso cursors to the interface used by existing database functions."""
+
+    def __init__(self, cursor):
+        self._cursor = cursor
+        description = cursor.description
+        self._columns = [column[0] for column in description] if description else []
+
+    @property
+    def lastrowid(self):
+        return self._cursor.lastrowid
+
+    @property
+    def rowcount(self):
+        return self._cursor.rowcount
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        return _Row(self._columns, row) if row is not None else None
+
+    def fetchall(self):
+        return [_Row(self._columns, row) for row in self._cursor.fetchall()]
+
+
+class _ConnectionAdapter:
+    """Keep the existing SQLite-style connection interface for Turso."""
+
+    def __init__(self, connection):
+        self._connection = connection
+
+    def execute(self, sql, parameters=()):
+        return _CursorAdapter(self._connection.execute(sql, parameters))
+
+    def commit(self):
+        return self._connection.commit()
+
+    def rollback(self):
+        return self._connection.rollback()
+
+    def close(self):
+        return self._connection.close()
+
+
 def get_connection():
+    """Use Turso when configured; otherwise use the local SQLite database."""
+    _load_local_env()
+
+    turso_url = os.getenv("TURSO_DATABASE_URL")
+    turso_token = os.getenv("TURSO_AUTH_TOKEN")
+
+    if turso_url and turso_token:
+        import libsql
+
+        connection = libsql.connect(turso_url, auth_token=turso_token)
+        connection.execute("PRAGMA foreign_keys = ON")
+        return _ConnectionAdapter(connection)
+
     connection = sqlite3.connect(DATABASE_PATH)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
