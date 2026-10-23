@@ -1,0 +1,25 @@
+﻿.venv/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite
+*.sqlite3
+deployment_backup/
+backup/
+frontend/node_modules/
+frontend/dist/
+
+# Additional local dependencies and backups
+node_modules/
+*.backup
+*.pre_auth_backup
+
+# Login-related backup files
+*.pre_login_backup
+
+# Root package files; frontend dependencies are in frontend/
+/package.json
+/package-lock.json
