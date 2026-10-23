@@ -56,7 +56,7 @@ type AdminUser = AuthUser & { is_active?: boolean };
 type WorkspaceCategory = { id: number; name: string; is_active: boolean | number; created_at?: string | null };
 
 
-const API_BASE = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+const API_BASE = (import.meta.env.VITE_API_URL || "https://voicedesk-2k7j.onrender.com").replace(/\/$/, "");
 const REQUEST_CATEGORIES = [
   "IT Support",
   "Equipment",
